@@ -40,3 +40,7 @@ class InvalidPathError(FileExplorerError):
 
 class OperationCancelledError(FileExplorerError):
     ...
+
+
+class OperationCannotUndoError(FileExplorerError):
+    ...

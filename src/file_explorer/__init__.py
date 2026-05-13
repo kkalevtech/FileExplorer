@@ -20,6 +20,7 @@ from file_explorer.exceptions import (
     PermissionDeniedError,
 )
 from file_explorer.filesystem import FilesystemAbstraction, NativeFilesystem
+from file_explorer.metadata import FileMetadata, get_metadata, get_size_formatted
 from file_explorer.path_utils import (
     common_ancestor,
     is_subpath,
@@ -35,6 +36,7 @@ __all__ = [
     "FileAlreadyExistsError",
     "FileExplorerError",
     "FileInUseError",
+    "FileMetadata",
     "FilesystemAbstraction",
     "InvalidPathError",
     "NativeFilesystem",
@@ -47,6 +49,8 @@ __all__ = [
     "delete_item",
     "duplicate_item",
     "get_logger",
+    "get_metadata",
+    "get_size_formatted",
     "is_subpath",
     "read_file_content",
     "rename_item",

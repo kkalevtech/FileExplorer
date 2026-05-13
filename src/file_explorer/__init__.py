@@ -9,6 +9,7 @@ from file_explorer.exceptions import (
     PathNotFoundError,
     PermissionDeniedError,
 )
+from file_explorer.filesystem import FilesystemAbstraction, NativeFilesystem
 from file_explorer.path_utils import (
     common_ancestor,
     is_subpath,
@@ -23,7 +24,9 @@ __all__ = [
     "FileAlreadyExistsError",
     "FileExplorerError",
     "FileInUseError",
+    "FilesystemAbstraction",
     "InvalidPathError",
+    "NativeFilesystem",
     "OperationCancelledError",
     "PathNotFoundError",
     "PermissionDeniedError",

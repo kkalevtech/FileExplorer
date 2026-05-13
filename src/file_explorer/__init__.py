@@ -1,4 +1,5 @@
 from file_explorer._logging import get_logger, setup_logging
+from file_explorer.directory import DirectoryNavigator
 from file_explorer.exceptions import (
     DiskFullError,
     FileAlreadyExistsError,
@@ -20,6 +21,7 @@ from file_explorer.path_utils import (
 )
 
 __all__ = [
+    "DirectoryNavigator",
     "DiskFullError",
     "FileAlreadyExistsError",
     "FileExplorerError",

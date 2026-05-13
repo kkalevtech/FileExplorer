@@ -9,6 +9,14 @@ from file_explorer.exceptions import (
     PathNotFoundError,
     PermissionDeniedError,
 )
+from file_explorer.path_utils import (
+    common_ancestor,
+    is_subpath,
+    resolve_path,
+    sanitize_filename,
+    split_path_components,
+    unique_path,
+)
 
 __all__ = [
     "DiskFullError",
@@ -19,6 +27,12 @@ __all__ = [
     "OperationCancelledError",
     "PathNotFoundError",
     "PermissionDeniedError",
+    "common_ancestor",
     "get_logger",
+    "is_subpath",
+    "resolve_path",
+    "sanitize_filename",
     "setup_logging",
+    "split_path_components",
+    "unique_path",
 ]

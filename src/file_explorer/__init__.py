@@ -1,4 +1,13 @@
 from file_explorer._logging import get_logger, setup_logging
+from file_explorer.crud import (
+    create_directory,
+    create_file,
+    delete_item,
+    duplicate_item,
+    read_file_content,
+    rename_item,
+    write_file_content,
+)
 from file_explorer.directory import DirectoryNavigator
 from file_explorer.exceptions import (
     DiskFullError,
@@ -33,11 +42,18 @@ __all__ = [
     "PathNotFoundError",
     "PermissionDeniedError",
     "common_ancestor",
+    "create_directory",
+    "create_file",
+    "delete_item",
+    "duplicate_item",
     "get_logger",
     "is_subpath",
+    "read_file_content",
+    "rename_item",
     "resolve_path",
     "sanitize_filename",
     "setup_logging",
     "split_path_components",
     "unique_path",
+    "write_file_content",
 ]

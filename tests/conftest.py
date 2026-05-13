@@ -243,6 +243,27 @@ class MockFilesystem(FilesystemAbstraction):
         entry = self._entries.get(p)
         return entry is not None and entry.is_dir
 
+    def read_file(self, path: Path, mode: str = "text") -> str | bytes:
+        p = self._norm(path)
+        self._enforce_permissions(p)
+        entry = self._resolve(p)
+        if entry.is_dir:
+            raise FileExplorerError(f"Is a directory: {p}", path=p)
+        if mode == "text":
+            return entry.content
+        return entry.content.encode("utf-8")
+
+    def write_file(self, path: Path, content: str | bytes) -> Path:
+        p = self._norm(path)
+        self._enforce_permissions(p)
+        entry = self._resolve(p)
+        if entry.is_dir:
+            raise FileExplorerError(f"Is a directory: {p}", path=p)
+        if isinstance(content, bytes):
+            content = content.decode("utf-8")
+        entry.content = content
+        return p
+
     def get_permissions(self, path: Path) -> str:
         p = self._norm(path)
         self._enforce_permissions(p)

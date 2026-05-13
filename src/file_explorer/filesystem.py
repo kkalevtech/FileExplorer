@@ -95,6 +95,14 @@ class FilesystemAbstraction(ABC):
         ...
 
     @abstractmethod
+    def read_file(self, path: Path, mode: str = "text") -> str | bytes:
+        ...
+
+    @abstractmethod
+    def write_file(self, path: Path, content: str | bytes) -> Path:
+        ...
+
+    @abstractmethod
     def get_permissions(self, path: Path) -> str:
         ...
 
@@ -207,6 +215,24 @@ class NativeFilesystem(FilesystemAbstraction):
             return path.is_dir()
         except OSError:
             return False
+
+    def read_file(self, path: Path, mode: str = "text") -> str | bytes:
+        try:
+            if mode == "text":
+                return path.read_text(encoding="utf-8")
+            return path.read_bytes()
+        except OSError as e:
+            raise _translate_error(path, e)
+
+    def write_file(self, path: Path, content: str | bytes) -> Path:
+        try:
+            if isinstance(content, str):
+                path.write_text(content, encoding="utf-8")
+            else:
+                path.write_bytes(content)
+            return path
+        except OSError as e:
+            raise _translate_error(path, e)
 
     def get_permissions(self, path: Path) -> str:
         try:

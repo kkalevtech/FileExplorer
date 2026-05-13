@@ -29,6 +29,7 @@ from file_explorer.exceptions import (
 )
 from file_explorer.filesystem import FilesystemAbstraction, NativeFilesystem
 from file_explorer.metadata import FileMetadata, get_metadata, get_size_formatted
+from file_explorer.permissions import PermissionManager, is_retryable, user_friendly_message
 from file_explorer.path_utils import (
     common_ancestor,
     is_subpath,
@@ -65,8 +66,10 @@ __all__ = [
     "get_logger",
     "get_metadata",
     "get_size_formatted",
+    "is_retryable",
     "is_subpath",
     "move_item",
+    "PermissionManager",
     "search_by_name",
     "SearchOptions",
     "SearchResult",
@@ -77,5 +80,6 @@ __all__ = [
     "setup_logging",
     "split_path_components",
     "unique_path",
+    "user_friendly_message",
     "write_file_content",
 ]

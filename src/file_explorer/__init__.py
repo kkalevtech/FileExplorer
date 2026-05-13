@@ -1,4 +1,12 @@
 from file_explorer._logging import get_logger, setup_logging
+from file_explorer.copy_move import (
+    ConflictStrategy,
+    OperationResult,
+    batch_copy,
+    batch_move,
+    copy_item,
+    move_item,
+)
 from file_explorer.crud import (
     create_directory,
     create_file,
@@ -31,6 +39,7 @@ from file_explorer.path_utils import (
 )
 
 __all__ = [
+    "ConflictStrategy",
     "DirectoryNavigator",
     "DiskFullError",
     "FileAlreadyExistsError",
@@ -41,9 +50,13 @@ __all__ = [
     "InvalidPathError",
     "NativeFilesystem",
     "OperationCancelledError",
+    "OperationResult",
     "PathNotFoundError",
     "PermissionDeniedError",
+    "batch_copy",
+    "batch_move",
     "common_ancestor",
+    "copy_item",
     "create_directory",
     "create_file",
     "delete_item",
@@ -52,6 +65,7 @@ __all__ = [
     "get_metadata",
     "get_size_formatted",
     "is_subpath",
+    "move_item",
     "read_file_content",
     "rename_item",
     "resolve_path",

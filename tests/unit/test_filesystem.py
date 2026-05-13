@@ -3,11 +3,15 @@ from pathlib import Path
 import pytest
 
 from file_explorer.exceptions import (
+    DiskFullError,
     FileAlreadyExistsError,
     FileExplorerError,
+    FileInUseError,
     PathNotFoundError,
+    PermissionDeniedError,
 )
 from file_explorer.filesystem import NativeFilesystem
+from tests.conftest import MockFilesystem
 
 
 @pytest.fixture
@@ -209,3 +213,126 @@ class TestGetPermissions:
         target.touch()
         perms = fs.get_permissions(target)
         assert perms.startswith("0o")
+
+
+class TestMockFilesystem:
+
+    @pytest.fixture
+    def mfs(self):
+        return MockFilesystem()
+
+    def test_create_file_and_exists(self, mfs: MockFilesystem):
+        p = Path("/test/file.txt")
+        result = mfs.create_file(p)
+        assert result == p.absolute()
+        assert mfs.exists(p) is True
+        assert mfs.is_file(p) is True
+
+    def test_create_dir(self, mfs: MockFilesystem):
+        p = Path("/test/mydir")
+        result = mfs.create_dir(p)
+        assert result == p.absolute()
+        assert mfs.exists(p) is True
+        assert mfs.is_dir(p) is True
+
+    def test_create_file_existing_raises(self, mfs: MockFilesystem):
+        p = Path("/test/file.txt")
+        mfs.create_file(p)
+        with pytest.raises(FileAlreadyExistsError):
+            mfs.create_file(p)
+
+    def test_read_dir(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/root/a.txt"))
+        mfs.create_file(Path("/root/b.txt"))
+        entries = mfs.read_dir(Path("/root"))
+        assert len(entries) == 2
+
+    def test_read_dir_nonexistent_raises(self, mfs: MockFilesystem):
+        with pytest.raises(PathNotFoundError):
+            mfs.read_dir(Path("/ghost"))
+
+    def test_read_dir_recursive(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/a/b/c/d.txt"))
+        all_entries = mfs.read_dir_recursive(Path("/a"))
+        assert len(all_entries) == 3
+
+    def test_delete_file(self, mfs: MockFilesystem):
+        p = Path("/test/file.txt")
+        mfs.create_file(p)
+        mfs.delete_file(p)
+        assert mfs.exists(p) is False
+
+    def test_delete_dir_recursive(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/a/b/c/file.txt"))
+        mfs.delete_dir(Path("/a"), recursive=True)
+        assert mfs.exists(Path("/a")) is False
+
+    def test_delete_dir_nonempty_no_recursive_raises(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/a/b/file.txt"))
+        with pytest.raises(FileExplorerError):
+            mfs.delete_dir(Path("/a"))
+
+    def test_rename(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/old.txt"))
+        result = mfs.rename(Path("/old.txt"), Path("/new.txt"))
+        assert result == Path("/new.txt").absolute()
+        assert mfs.exists(Path("/old.txt")) is False
+        assert mfs.exists(Path("/new.txt")) is True
+
+    def test_copy_file(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/src.txt"))
+        result = mfs.copy_file(Path("/src.txt"), Path("/dst.txt"))
+        assert mfs.exists(Path("/dst.txt")) is True
+
+    def test_copy_dir(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/src/a/b.txt"))
+        mfs.copy_dir(Path("/src"), Path("/dst"))
+        assert mfs.exists(Path("/dst/a/b.txt")) is True
+
+    def test_move_file(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/src.txt"))
+        mfs.move(Path("/src.txt"), Path("/dst.txt"))
+        assert mfs.exists(Path("/src.txt")) is False
+        assert mfs.exists(Path("/dst.txt")) is True
+
+    def test_move_dir(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/src/a/b.txt"))
+        mfs.move(Path("/src"), Path("/dst"))
+        assert mfs.exists(Path("/src")) is False
+        assert mfs.exists(Path("/dst/a/b.txt")) is True
+
+    def test_get_metadata(self, mfs: MockFilesystem):
+        mfs.create_file(Path("/f.txt"))
+        meta = mfs.get_metadata(Path("/f.txt"))
+        assert meta["is_file"] is True
+        assert meta["is_dir"] is False
+
+    def test_get_metadata_nonexistent_raises(self, mfs: MockFilesystem):
+        with pytest.raises(PathNotFoundError):
+            mfs.get_metadata(Path("/ghost.txt"))
+
+    def test_permission_denied(self, mfs: MockFilesystem):
+        p = Path("/restricted/file.txt")
+        mfs.create_file(p)
+        mfs.set_restricted(p)
+        with pytest.raises(PermissionDeniedError):
+            mfs.read_dir(p)
+
+    def test_file_in_use(self, mfs: MockFilesystem):
+        p = Path("/locked/file.txt")
+        mfs.create_file(p)
+        mfs.set_locked(p)
+        with pytest.raises(FileInUseError):
+            mfs.read_dir(p)
+
+    def test_disk_full(self, mfs: MockFilesystem):
+        mfs.set_capacity(0)
+        with pytest.raises(DiskFullError):
+            mfs.create_file(Path("/new.txt"))
+
+    def test_mock_fs_fixture(self, mock_fs: MockFilesystem):
+        assert mock_fs.exists(Path("/dir1")) is True
+        assert mock_fs.exists(Path("/file_a.txt")) is True
+        assert mock_fs.exists(Path("/.hidden_file")) is True
+        assert mock_fs.is_dir(Path("/dir1")) is True
+        assert mock_fs.is_file(Path("/file_a.txt")) is True

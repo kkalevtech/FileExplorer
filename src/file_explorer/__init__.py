@@ -37,6 +37,7 @@ from file_explorer.path_utils import (
     split_path_components,
     unique_path,
 )
+from file_explorer.search import SearchOptions, SearchResult, search_by_name
 
 __all__ = [
     "ConflictStrategy",
@@ -66,6 +67,9 @@ __all__ = [
     "get_size_formatted",
     "is_subpath",
     "move_item",
+    "search_by_name",
+    "SearchOptions",
+    "SearchResult",
     "read_file_content",
     "rename_item",
     "resolve_path",

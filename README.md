@@ -25,6 +25,36 @@ All 12 phases from the development plan are complete (265 tests passing).
 
 ---
 
+## Contributing
+
+All contributors must work in a separate branch. Do not commit directly to `main`. The `main` branch is stable and ready — students will create a branch to extend functionalities and build a GUI.
+
+### Creating / Joining a Shared Branch
+
+**Student A** — create the branch and push it:
+
+```bash
+git checkout -b student1-student2 main          # create branch from main
+git push -u origin student1-student2            # push it to the remote
+```
+
+**Student B** — fetch the shared branch:
+
+```bash
+git fetch origin
+git checkout -b student1-student2 origin/student1-student2    # create local copy of the remote branch
+```
+
+### Workflow (both students, repeat as you go)
+
+1. Pull latest changes: `git pull origin student1-student2`
+2. Resolve any conflicts if needed
+3. Make your changes
+4. Commit: `git add . && git commit -m "Description"`
+5. Push: `git push origin student1-student2`
+
+---
+
 ## Quick Start
 
 ```bash

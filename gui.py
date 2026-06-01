@@ -250,6 +250,7 @@ class FileExplorerGUI:
         self._last_search_pattern = ""
         self._sort_col = "name"
         self._sort_rev = False
+        self._drag_start_iid: str | None = None
 
         self._setup_window()
         self._build_header()
@@ -480,13 +481,19 @@ class FileExplorerGUI:
         for col in columns:
             self._tree.heading(col, command=lambda c=col: self._on_sort(c))
 
-        # Bindings
+        # Bindings — drag selection
+        self._tree.bind("<Button-1>", self._on_drag_start, "+")
+        self._tree.bind("<B1-Motion>", self._on_drag_motion, "+")
+        self._tree.bind("<ButtonRelease-1>", self._on_drag_end, "+")
+        # Other bindings
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<<TreeviewSelect>>", self._on_select)
         self._tree.bind("<Button-3>", self._show_context_menu)
         self._tree.bind("<Delete>", lambda e: self._delete_selected())
 
         self.root.bind("<F5>", lambda e: self._load_directory())
+        self.root.bind("<Control-a>", self._select_all)
+        self.root.bind("<Control-A>", self._select_all)
 
         # Tag configurations
         self._tree.tag_configure("parent", font=("Segoe UI", 10, "bold"),
@@ -723,6 +730,29 @@ class FileExplorerGUI:
             messagebox.showerror("Error", f"Directory not found:\n{p}",
                                  parent=self.root)
 
+    # ── Drag selection ──────────────────────────────────────────
+    def _on_drag_start(self, event: tk.Event) -> None:
+        self._drag_start_iid = self._tree.identify_row(event.y)
+
+    def _on_drag_motion(self, event: tk.Event) -> None:
+        if not self._drag_start_iid:
+            return
+        current_iid = self._tree.identify_row(event.y)
+        if not current_iid or current_iid == self._drag_start_iid:
+            return
+        children = self._tree.get_children()
+        if self._drag_start_iid not in children or current_iid not in children:
+            return
+        s = children.index(self._drag_start_iid)
+        e = children.index(current_iid)
+        if s > e:
+            s, e = e, s
+        self._tree.selection_set(children[s:e + 1])
+
+    def _on_drag_end(self, event: tk.Event) -> None:
+        self._drag_start_iid = None
+
+    # ── Navigation ──────────────────────────────────────────────
     def _on_double_click(self, event: tk.Event) -> None:
         iid = self._tree.identify_row(event.y)
         if not iid:
@@ -899,15 +929,24 @@ class FileExplorerGUI:
         self.root.wait_window(dialog)
 
     def _duplicate_selected(self) -> None:
-        path = self._get_selected_path()
-        if not path:
+        paths = self._get_selected_paths()
+        if not paths:
             return
-        try:
-            new_path = duplicate_item(self.fs, path)
-            self._load_directory()
-            self._update_status(selected=f"Duplicated as \"{new_path.name}\"")
-        except FileExplorerError as e:
-            messagebox.showerror("Error", str(e), parent=self.root)
+        count = len(paths)
+        successes = 0
+        errors: list[str] = []
+        for path in paths:
+            try:
+                duplicate_item(self.fs, path)
+                successes += 1
+            except FileExplorerError as e:
+                errors.append(str(e))
+        self._load_directory()
+        if successes:
+            plural = "s" if successes != 1 else ""
+            self._update_status(selected=f"Duplicated {successes} item{plural}")
+        if errors:
+            messagebox.showerror("Error", "\n".join(errors[:3]), parent=self.root)
 
     # ── Copy / Move / Paste ─────────────────────────────────────
     def _copy_selected(self) -> None:
@@ -1093,54 +1132,61 @@ class FileExplorerGUI:
     def _show_context_menu(self, event: tk.Event) -> None:
         iid = self._tree.identify_row(event.y)
         if iid:
-            self._tree.selection_set(iid)
+            sel = self._tree.selection()
+            if iid not in sel:
+                self._tree.selection_set(iid)
+            if not self._tree.selection():
+                self._tree.selection_set(iid)
+
+        paths = self._get_selected_paths()
+        n = len(paths)
+        single = n == 1
 
         menu = tk.Menu(self.root, tearoff=False, bg=SURFACE, fg=TEXT,
                        font=("Segoe UI", 9), bd=0,
                        activebackground=PRIMARY_LT, activeforeground=PRIMARY_DK)
 
-        path = self._get_selected_path()
-        if path:
-            if self.fs.is_dir(path):
+        if single:
+            p = paths[0]
+            if self.fs.is_dir(p):
                 menu.add_command(
                     label=f"{ICON_UP}  Open",
-                    command=lambda: self._open_dir(path)
+                    command=lambda: self._open_dir(p)
                 )
                 menu.add_separator()
             menu.add_command(
                 label=f"{ICON_RENAME}  Rename",
                 command=self._rename_selected
             )
-            menu.add_command(
-                label=f"{ICON_DELETE}  Delete",
-                command=self._delete_selected
-            )
-            menu.add_command(
-                label=f"{ICON_DUP}  Duplicate",
-                command=self._duplicate_selected
-            )
-            menu.add_separator()
-            menu.add_command(
-                label=f"{ICON_COPY}  Copy",
-                command=self._copy_selected
-            )
-            menu.add_command(
-                label=f"{ICON_CUT}  Cut",
-                command=self._cut_selected
-            )
+        menu.add_command(
+            label=f"{ICON_DELETE}  Delete{' (' + str(n) + ')' if n > 1 else ''}",
+            command=self._delete_selected
+        )
+        menu.add_command(
+            label=f"{ICON_DUP}  Duplicate{' (' + str(n) + ')' if n > 1 else ''}",
+            command=self._duplicate_selected
+        )
+        menu.add_separator()
+        menu.add_command(
+            label=f"{ICON_COPY}  Copy{' (' + str(n) + ')' if n > 1 else ''}",
+            command=self._copy_selected
+        )
+        menu.add_command(
+            label=f"{ICON_CUT}  Cut{' (' + str(n) + ')' if n > 1 else ''}",
+            command=self._cut_selected
+        )
 
         if self._clipboard:
-            if path is None:
-                menu.add_separator()
+            menu.add_separator()
             menu.add_command(
                 label=f"{ICON_PASTE}  Paste",
                 command=self._paste_items
             )
 
-        if path:
+        if single:
             menu.add_separator()
             try:
-                meta = get_metadata(self.fs, path)
+                meta = get_metadata(self.fs, paths[0])
                 info_parts = [f"Name: {meta.name}"]
                 if meta.is_file:
                     info_parts.append(f"Size: {get_size_formatted(meta.size)}")
@@ -1158,18 +1204,56 @@ class FileExplorerGUI:
                 )
             except (PathNotFoundError, PermissionDeniedError):
                 pass
+        elif n > 1:
+            menu.add_separator()
+            menu.add_command(
+                label=f"  Properties ({n} selected)",
+                command=lambda: self._show_multi_properties(paths)
+            )
+
+        menu.add_separator()
+        menu.add_command(
+            label="  Select All",
+            command=self._select_all
+        )
 
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
 
+    def _show_multi_properties(self, paths: list[Path]) -> None:
+        dirs = sum(1 for p in paths if self.fs.is_dir(p))
+        files = len(paths) - dirs
+        total_size = 0
+        for p in paths:
+            try:
+                meta = get_metadata(self.fs, p)
+                total_size += meta.size
+            except (PathNotFoundError, PermissionDeniedError):
+                pass
+        info = (
+            f"Selected: {len(paths)} item(s)\n"
+            f"{ICON_FOLDER} Folders: {dirs}\n"
+            f"{ICON_FILE} Files: {files}\n"
+            f"Total size: {get_size_formatted(total_size)}"
+        )
+        messagebox.showinfo("Properties", info, parent=self.root)
+
     def _open_dir(self, path: Path) -> None:
         if self.fs.is_dir(path):
             self.nav.enter(path.name)
             self._load_directory()
 
-    # ── Helpers ─────────────────────────────────────────────────
+    # ── Selection helper ────────────────────────────────────────
+    def _select_all(self, event: tk.Event | None = None) -> None:
+        for iid in self._tree.get_children():
+            name = self._tree.set(iid, "name")
+            raw = name.split("  ", 1)[-1] if "  " in name else name
+            if raw == "..":
+                continue
+            self._tree.selection_add(iid)
+
     def _get_selected_path(self) -> Path | None:
         paths = self._get_selected_paths()
         return paths[0] if paths else None

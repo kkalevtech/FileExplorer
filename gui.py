@@ -61,8 +61,8 @@ SHADOW       = "#0000000A"
 ICON_BACK      = "\u25C0"    # ◀
 ICON_FWD       = "\u25B6"    # ▶
 ICON_UP        = "\u25B2"    # ▲
-ICON_FILE      = "\u1F4C4"   # 📄
-ICON_FOLDER    = "\u1F4C1"   # 📁
+ICON_FILE      = "\U0001F4C4"   # 📄
+ICON_FOLDER    = "\U0001F4C1"   # 📁
 ICON_RENAME    = "\u270E"    # ✎
 ICON_DELETE    = "\u2716"    # ✖
 ICON_DUP       = "\u2396"    # ⎖
@@ -74,8 +74,8 @@ ICON_REDO      = "\u21AA"    # ↪
 ICON_SEARCH    = "\u26B2"    # ⚲
 ICON_CLOSE     = "\u2715"    # ✕
 ICON_GO        = "\u27A1"    # ➡
-ICON_FOLDER_BIG = "\u1F4C1"  # 📁
-ICON_FILE_BIG  = "\u1F4C4"   # 📄
+ICON_FOLDER_BIG = "\U0001F4C1"  # 📁
+ICON_FILE_BIG  = "\U0001F4C4"   # 📄
 
 
 class IconButton(tk.Canvas):

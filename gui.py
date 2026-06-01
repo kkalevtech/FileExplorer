@@ -248,6 +248,8 @@ class FileExplorerGUI:
         self._clipboard: list[tuple[Path, str]] = []
         self._search_active = False
         self._last_search_pattern = ""
+        self._sort_col = "name"
+        self._sort_rev = False
 
         self._setup_window()
         self._build_header()
@@ -474,6 +476,10 @@ class FileExplorerGUI:
         list_frame.grid_rowconfigure(0, weight=1)
         list_frame.grid_columnconfigure(0, weight=1)
 
+        # Heading click bindings for sorting
+        for col in columns:
+            self._tree.heading(col, command=lambda c=col: self._on_sort(c))
+
         # Bindings
         self._tree.bind("<Double-1>", self._on_double_click)
         self._tree.bind("<<TreeviewSelect>>", self._on_select)
@@ -540,20 +546,23 @@ class FileExplorerGUI:
         self._tree.set(parent_iid, "attrs", "")
         self._tree.item(parent_iid, tags=("parent",))
 
-        dirs = sorted(
-            [e for e in entries if self.fs.is_dir(e)],
-            key=lambda p: p.name.lower()
-        )
-        files = sorted(
-            [e for e in entries if self.fs.is_file(e)],
-            key=lambda p: p.name.lower()
-        )
+        # Collect entries with metadata
+        item_data = []
+        for entry in entries:
+            is_dir = self.fs.is_dir(entry)
+            try:
+                meta = get_metadata(self.fs, entry)
+            except (PathNotFoundError, PermissionDeniedError):
+                meta = None
+            item_data.append((entry, meta, is_dir))
+
+        # Sort
+        item_data.sort(key=lambda t: self._sort_key(t[0], t[1], t[2]))
 
         dir_count = 0
         file_count = 0
 
-        for entry in dirs + files:
-            is_dir = self.fs.is_dir(entry)
+        for entry, meta, is_dir in item_data:
             if is_dir:
                 dir_count += 1
             else:
@@ -562,8 +571,7 @@ class FileExplorerGUI:
             iid = self._tree.insert("", "end", text="", open=False)
             name_prefix = f"{ICON_FOLDER}  " if is_dir else f"{ICON_FILE}  "
 
-            try:
-                meta = get_metadata(self.fs, entry)
+            if meta is not None:
                 display_name = name_prefix + entry.name
                 self._tree.set(iid, "name", display_name)
                 self._tree.set(iid, "size",
@@ -579,7 +587,7 @@ class FileExplorerGUI:
                 if meta.is_readonly:
                     attrs_parts.append("R")
                 self._tree.set(iid, "attrs", " ".join(attrs_parts))
-            except (PathNotFoundError, PermissionDeniedError):
+            else:
                 self._tree.set(iid, "name", name_prefix + entry.name)
                 self._tree.set(iid, "type",
                                 "Folder" if is_dir else "File")
@@ -592,6 +600,61 @@ class FileExplorerGUI:
         total = len(entries)
         self._update_status(count=total, dir_count=dir_count, file_count=file_count)
         self._update_buttons()
+
+    def _sort_key(self, entry: Path, meta, is_dir: bool) -> tuple:
+        dir_order = 0 if is_dir else 1
+        col = self._sort_col
+        rev = self._sort_rev
+
+        if col == "name":
+            val = entry.name.lower()
+        elif col == "size":
+            val = meta.size if meta is not None and meta.is_file else (-1 if is_dir else 0)
+        elif col == "type":
+            if is_dir:
+                val = ""
+            elif meta is not None:
+                val = meta.extension.lower()
+            else:
+                val = ""
+        elif col == "modified":
+            val = meta.modified if meta is not None else 0.0
+        elif col == "attrs":
+            parts = []
+            if meta is not None:
+                if meta.is_hidden:
+                    parts.append("H")
+                if meta.is_readonly:
+                    parts.append("R")
+            val = "".join(parts)
+        else:
+            val = entry.name.lower()
+
+        return (dir_order, val if not rev else self._flip(val))
+
+    def _flip(self, val):
+        if isinstance(val, (int, float)):
+            return -val
+        if isinstance(val, str):
+            return "".join(chr(0xFFFF - ord(c)) for c in val)
+        return val
+
+    def _on_sort(self, col: str) -> None:
+        if self._sort_col == col:
+            self._sort_rev = not self._sort_rev
+        else:
+            self._sort_col = col
+            self._sort_rev = False
+        self._update_sort_indicators()
+        self._load_directory()
+
+    def _update_sort_indicators(self) -> None:
+        indicator = " \u25B2" if not self._sort_rev else " \u25BC"
+        for col in ("name", "size", "type", "modified", "attrs"):
+            text = col.capitalize() if col != "name" else "Name"
+            if col == self._sort_col:
+                text += indicator
+            self._tree.heading(col, text=text)
 
     def _format_time(self, timestamp: float) -> str:
         from datetime import datetime

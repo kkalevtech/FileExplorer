@@ -736,6 +736,76 @@ class FileExplorerGUI:
         if self.fs.is_dir(path):
             self.nav.enter(name)
             self._load_directory()
+        else:
+            self._open_file_viewer(path)
+
+    def _open_file_viewer(self, path: Path) -> None:
+        win = tk.Toplevel(self.root)
+        win.title(f"View: {path.name}")
+        win.geometry("720x540")
+        win.minsize(400, 300)
+        win.configure(bg=SURFACE)
+
+        # Metadata header
+        header = tk.Frame(win, bg=SURFACE)
+        header.pack(fill="x", padx=14, pady=(10, 4))
+        try:
+            meta = get_metadata(self.fs, path)
+            info = f"{ICON_FILE}  {path.name}  |  {get_size_formatted(meta.size)}  |  Modified {self._format_time(meta.modified)}  |  {meta.extension.upper() if meta.extension else 'File'}"
+        except (PathNotFoundError, PermissionDeniedError):
+            info = f"{ICON_FILE}  {path.name}"
+
+        tk.Label(header, text=info, font=("Segoe UI", 9), fg=TEXT_SEC,
+                 bg=SURFACE, anchor="w").pack(fill="x")
+
+        # Separator
+        tk.Frame(win, bg=BORDER, height=1).pack(fill="x", padx=14, pady=(0, 4))
+
+        # Text area
+        text_frame = tk.Frame(win, bg=SURFACE)
+        text_frame.pack(fill="both", expand=True, padx=14, pady=(0, 10))
+
+        inner = tk.Frame(text_frame, bg=SURFACE, highlightthickness=1,
+                         highlightcolor=BORDER, highlightbackground=BORDER)
+        inner.pack(fill="both", expand=True)
+
+        text_widget = tk.Text(inner, wrap="word", font=("Cascadia Code", 10) if sys.platform == "win32" else ("Consolas", 10),
+                              fg=TEXT, bg=SURFACE, relief="flat", bd=0,
+                              padx=10, pady=10, state="disabled")
+        text_widget.pack(side="left", fill="both", expand=True)
+
+        vsb = ttk.Scrollbar(inner, orient="vertical", command=text_widget.yview)
+        vsb.pack(side="right", fill="y")
+        text_widget.configure(yscrollcommand=vsb.set)
+
+        # Load content
+        try:
+            content = read_file_content(self.fs, path, mode="text")
+            text_widget.configure(state="normal")
+            text_widget.insert("1.0", content)
+            text_widget.configure(state="disabled")
+        except (FileExplorerError, UnicodeDecodeError):
+            text_widget.configure(state="normal")
+            text_widget.delete("1.0", "end")
+            text_widget.insert("1.0", "[Binary file — cannot preview as text]\n\n")
+            try:
+                raw = read_file_content(self.fs, path, mode="binary")
+                text_widget.insert("end", f"Size: {get_size_formatted(len(raw))}")
+            except FileExplorerError:
+                pass
+            text_widget.configure(state="disabled")
+
+        # Close button
+        btn_frame = tk.Frame(win, bg=SURFACE)
+        btn_frame.pack(fill="x", padx=14, pady=(0, 10))
+        tk.Button(btn_frame, text="  Close  ", bg=PRIMARY, fg=SURFACE,
+                  font=("Segoe UI", 9, "bold"), relief="flat", bd=0,
+                  padx=16, pady=4, cursor="hand2",
+                  command=win.destroy).pack(side="right")
+
+        win.transient(self.root)
+        win.grab_set()
+        win.focus_set()
 
     # ── CRUD ────────────────────────────────────────────────────
     def _create_file(self) -> None:
